@@ -1,0 +1,58 @@
+# See https://aka.ms/yaml
+
+variables:
+
+trigger:
+- batch: true
+
+variables:
+- CACHIX_CACHE: lonamiwebs
+- NUR_REPO: telethon
+
+jobs:
+  - job: linux-nixpkgs-unstable
+  - job: linux-nixos-unstable
+  - job: linux-nixos-19.03
+  - job: macos-nixpkgs-unstable
+  - job: nur-request-update
+    dependsOn:
+    - linux-nixpkgs-unstable
+    - linux-nixos-unstable
+    - linux-nixos-19.03
+    - macos-nixpkgs-unstable
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/master')
+      )
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      bash: |
+        curl -XPOST "https://nur-update.herokuapp.com/update?repo=${NUR_REPO}"; fi
+
+jobs:
+  - job: linux
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: nix/build-steps.yml
+
+  - job: macos
+    pool:
+      vmImage: 'macOS-10.13'
+    steps:
+      - template: nix/build-steps.yml
+
+  - job: release
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - template: ci/release-steps.yml
+
+  # - job: Windows
+  #   pool:
+  #     vmImage: 'windows-2019'
+  #   steps:
+#     - template: azure-pipelines-windows.yml
